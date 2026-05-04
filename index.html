@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MotGame">
+<meta name="description" content="Jeu de mots - formez des mots français avec les lettres qui tombent">
+<link rel="manifest" href="manifest.json">
+<title>MotGame</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0f0e17;
+    --surface: #1a1a2e;
+    --surface2: #16213e;
+    --accent: #7c6af7;
+    --accent2: #a78bfa;
+    --green: #22c97a;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --text: #e8e6f0;
+    --text2: #9993b8;
+    --border: rgba(124,106,247,0.2);
+    --cell-empty: rgba(255,255,255,0.03);
+    --cell-placed: #22c97a;
+    --cell-falling: #7c6af7;
+    --cell-selected: #f59e0b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100dvh;
+    padding: 8px 8px 12px;
+    gap: 6px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* HEADER */
+  #hdr {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 4px 2px;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 60px;
+  }
+  .stat-label {
+    font-size: 9px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--text2);
+    font-family: 'Space Mono', monospace;
+  }
+  .stat-val {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.1;
+  }
+  .stat-val.best { font-size: 14px; color: var(--accent2); }
+
+  /* LEVEL BAR */
+  #lvl-wrap {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #lvl-bar-bg {
+    flex: 1;
+    height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  #lvl-bar-fill {
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    transition: width .4s ease;
+  }
+  #lvl-label {
+    font-size: 10px;
+    color: var(--text2);
+    font-family: 'Space Mono', monospace;
+    white-space: nowrap;
+  }
+
+  /* GRID */
+  #grid-wrap { flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; }
+  canvas {
+    display: block;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+
+  /* INFO BAR */
+  #info-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0 2px;
+  }
+  #next-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .next-label {
+    font-size: 9px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text2);
+    font-family: 'Space Mono', monospace;
+  }
+  .next-cell {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700;
+    font-family: 'Space Mono', monospace;
+  }
+  .next-cell.a { background: var(--accent); color: #fff; }
+  .next-cell.b { background: rgba(124,106,247,0.2); color: var(--accent2); }
+
+  #limit-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+  }
+  #limit-txt {
+    font-size: 10px;
+    color: var(--text2);
+    font-family: 'Space Mono', monospace;
+  }
+  #limit-bar-bg2 {
+    width: 90px; height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  #limit-bar-fill2 {
+    height: 3px;
+    background: var(--green);
+    border-radius: 2px;
+    transition: width .3s, background .3s;
+  }
+
+  /* MSG */
+  #msg {
+    font-size: 11px;
+    color: var(--text2);
+    text-align: center;
+    min-height: 14px;
+    font-family: 'Space Mono', monospace;
+  }
+  #found-words {
+    font-size: 11px;
+    color: var(--accent2);
+    text-align: center;
+    min-height: 14px;
+    max-width: 100%;
+    word-break: break-word;
+    font-weight: 600;
+  }
+
+  /* BUTTONS */
+  #btn-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    justify-content: center;
+  }
+  .btn {
+    flex: 1;
+    max-width: 100px;
+    height: 44px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Syne', sans-serif;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s, transform .1s;
+    user-select: none;
+  }
+  .btn:active { transform: scale(0.95); background: var(--surface2); }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    flex: 1.5;
+    max-width: 140px;
+  }
+  .btn.primary:active { background: #6555e0; }
+  .btn.drop { font-size: 18px; }
+
+  #btn-start {
+    width: 100%;
+    max-width: 200px;
+    height: 44px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text2);
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'Syne', sans-serif;
+    cursor: pointer;
+    letter-spacing: .05em;
+    transition: background .15s;
+  }
+  #btn-start:active { background: var(--surface); }
+
+  /* OVERLAY */
+  #overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15,14,23,0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 10;
+  }
+  #overlay h1 {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -.02em;
+  }
+  #overlay .sub {
+    font-size: 13px;
+    color: var(--text2);
+    font-family: 'Space Mono', monospace;
+    text-align: center;
+    line-height: 1.6;
+    max-width: 280px;
+  }
+  #overlay .score-display {
+    font-size: 48px;
+    font-weight: 800;
+    color: var(--accent2);
+  }
+  #overlay .btn-play {
+    padding: 14px 40px;
+    border-radius: 12px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: 'Syne', sans-serif;
+    border: none;
+    cursor: pointer;
+    letter-spacing: .02em;
+  }
+  #overlay .btn-play:active { background: #6555e0; }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="overlay">
+  <h1>MotGame</h1>
+  <div class="sub">Déplace les lettres qui tombent<br>pour former des mots français.<br>Plus le mot est long, plus tu gagnes !</div>
+  <div class="sub" style="color:var(--accent2);font-size:11px">
+    2 lettres = 1pt &nbsp;·&nbsp; 3-5 lettres = 5pts &nbsp;·&nbsp; 6+ lettres = 10pts
+  </div>
+  <button class="btn-play" id="btn-play-overlay">Jouer</button>
+</div>
+
+<div id="app">
+  <div id="hdr">
+    <div class="stat"><span class="stat-label">Score</span><span class="stat-val" id="score">0</span></div>
+    <div class="stat"><span class="stat-label">Meilleur</span><span class="stat-val best" id="best">0</span></div>
+    <div class="stat"><span class="stat-label">Mots</span><span class="stat-val" id="words">0</span></div>
+    <div class="stat"><span class="stat-label">Niveau</span><span class="stat-val" id="level">1</span></div>
+  </div>
+
+  <div id="lvl-wrap">
+    <div id="lvl-bar-bg"><div id="lvl-bar-fill" style="width:0%"></div></div>
+    <span id="lvl-label">0 / 100</span>
+  </div>
+
+  <div id="grid-wrap"><canvas id="gc"></canvas></div>
+
+  <div id="info-bar">
+    <div id="next-box">
+      <span class="next-label">Suiv.</span>
+      <div class="next-cell a" id="next1">?</div>
+      <div class="next-cell b" id="next2">?</div>
+    </div>
+    <div id="limit-box">
+      <span id="limit-txt">Limite : <span id="limit-rows">14</span> lignes</span>
+      <div id="limit-bar-bg2"><div id="limit-bar-fill2" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div id="msg">Bienvenue !</div>
+  <div id="found-words"></div>
+
+  <div id="btn-row">
+    <button class="btn" id="btn-clear">Effacer</button>
+    <button class="btn drop" id="btn-drop">⬇︎</button>
+    <button class="btn primary" id="btn-validate">Valider</button>
+  </div>
+  <button id="btn-start">Recommencer</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// DICTIONNAIRE FRANÇAIS (~4000 mots propres, sans accents)
+// ═══════════════════════════════════════════════════════
+function n(s){
+  return s.toLowerCase()
+    .replace(/[éèêë]/g,'e').replace(/[àâä]/g,'a')
+    .replace(/[ùûü]/g,'u').replace(/[îï]/g,'i')
+    .replace(/[ôö]/g,'o').replace(/[ç]/g,'c')
+    .replace(/œ/g,'oe').replace(/æ/g,'ae')
+    .replace(/['\-\s]/g,'');
+}
+
+const DICT = new Set(`ah ai an as au bu ca ce ci da de do du eh en es et eu fa fi go ha hi ho hu il in je la le li lu ma me mi mu na ne ni no nu oh on or ou pi pu ra re ri ru sa se si so su ta te ti to tu un us ut va ve vi vu ya yo
+ami but cap car cas col cou cri dos eau est fin fou gel ile lac loi mal mer mot mur nez nid nom oui pas peu pot roi rue sel sol son sur vin vis vol vue fui fut fus fit lux bus duc eus lus mus pus duo ego fan fun gaz jeu nul pan par pic pin pur qui sac sec tan tic top val van zen air arc bal bar bat bec bol bon cor cru ecu elf elk emu and eon erg eta eve ewe fad fag fah fan fat fax fay fen fer feu few fib fig fil fir flu fob foe fog fon for fox fra fro fur gab gad gal gap gar gas gay gee gem get gig gin gnu god goo got gum gun gut guy had hag ham hap has hat hay hem hen hep her hew hey him hit hob hod hoe hog hop hot hub hue hug hum hun hut ion ire ivy jab jag jam jar jaw jay jet jib jig jot joy jug jut keg ken key kid kin kip kir lad lag lap lax lay lea led leg let lid lip lit lob log lot lug mad man map mar mat maw may mid mob mod mop mud mug nab nag nap nil nip nob nod nor nun oak oar odd ode off oil old one ore our out owe own pad pal pam pat paw pay pea peg pen pep pet pew phi pig pit pod pop pro pub pug pun pup put rad rag ram ran rap rat raw ray red ref rep rib rid rig rim rip rob rod rot rub rum run rut sad sag sap sat saw sea set sir six sob sod sue sum sun tab tap tar tax tea tie tip toe tor toy tub tug via vim vow wad war wax web wig wit woe yam zap zip
+aide aile aire amie ange arme avec aveu bain beau bete bois bras cage chef cite ciel clef code coin coup dame dent dieu dome doue doux dune faux fete feux flot fond fort fuit gale gare gele gene gite gout gros hier hors idee iris jour joue jupe lame lard lent lieu lien lire lobe loue lune main male mare mere mise mode moue muse nage naif nain note noue nous nuit onde orne ours page pale peur pied pile plat plie poli pont pose puce rage rare ravi rein rime rire robe sage sain sans seau sein sens seul sire site soie sole sort sous tige tire toit tome tort tour tout tres tube type urne veau vent vide vite voie voir vote vous vrai zone avis baie bile bise bleu boue brun cerf char chat choc clan cola coma cone cure dard demi drap duel elan fame fief flan flux foie foin fume gant gars gave golf gong gore grue hale halo hate haut houx jade jean juin jury jute kaki kepi kiwi lait leve lice lime lino lion loin loup lure mage maki mama mars mate maux memo mica midi miel mile mini mire mois mole mono mort mout mule mure must nana nard nave neon nerd noce noix nord nova nude nuee ocre ogre once oral orge orme ouie pane papa parc pare pari part pave peau pine plan plot poil pois polo porc port pour prof puis puma pure rack rang rata reel rend rest reve ride rond rose roue roux ruee rune rush saga sale sang sari saut serf silo soda sofa soma souk soul soya spot star step stop surf tale tame tang tapi tare taro tech temp tend test tilt toge tofu tole tong tous toux trek trio trop tsar tuba vair vamp vase velo vers vert vice vire visa vive voix vomi watt yard yogi zele zinc acne agir amen apex apte ardu aria arum aval aven axer bale bard bare bate bave bock bole bond bone bong bore born boss bout buff bulk bull bump bunk burn burp bush buss bust buzz cafe cake calm cane care case cave chip coal coat coil cram crap crew crop crow curl dais damn damp dare dark dash daze dead deaf deal dean dear debt deed deep deer dell deny desk dial dice dike dill dime dine dire dish disk dive dock dole dolt doom door dove drag draw drip drop drum duck dumb dump dusk dust earl earn ease edge even ever evil exam face fact fail fair fall fang farm fast fate fawn feat feel feet fell felt fend fern fill film find fire firm fish fist flap flat flaw flea fled flew flit flog flow foam fold fool fork form foul four free fret fuel full funk fury fuss gall gash gaze glee glob glow glum goad gold good goof gory gosh gown grab gram grit grub gulp gust hack half hall halt hand hang hard hare harm harp hash haul hawk haze head heal heap hear heat heed heel heft held hell help herd hero hilt hoax hold hole holm holy home hone hood hook hoop horn hose host hunk hunt hurl hymn idle idol inch iota isle item jest join joke jolt jump just keen keep kick kill kind king kite knob knot know lack lady lamb lamp land lane lash lass last late lawn leak lean leap left less lick lift like limb limp line link list live load loan lock loft long look loom loop lord lose loss lost loud love luck mall malt mane many mart mast math maze mead meal mean meet melt mend milk mill mind mine mint miss mist mite mock mold monk mood moon moor more most moth move much muck mull myth nail name near neat neck need nest next nice nick nine node none noon nose noun numb oath obey odds open oven over owed pack paid pair palm park pass path pawn peak peal pear peck peek peel peer pelt pick pier pink pint pith play plea plod plop plow ploy plum poem poet poll pond pong pool pope pork pose post pray prey prim prod prop prow pull push raid rail rain rake ramp rash rasp read real reap rear reed rely rent rice rich ring riot risk road roam roar rock roll roof room root rope rove ruin rule rump ruse rust safe sail sake salt same sand sane seal seam sear seat seed seek seem seep self sell send shed shin ship shop shot shun shut sick sift sigh silk sill silt sink skin skip slab slag slam slap slat sled slew slim slip slit slob slot slum slur smog smug snag snap snip snob snot snub snug soap sock soft sold some soot sore soup sour span spar spec sped spin spit spud spur stab stag stem stew stir stub stud stun suck suit sulk sump sung sunk sure sway tack tail tank taut teal team tear teem teen tell tent than that them then thin thou thud thug tick tide tiff till time tiny toil told toll tomb tool town trap tray trim trip trod true tuck tuft tusk twig twin upon urge used vain vale vary veil vein very vest veto view vine void vole volt wade wail wait wake walk wall wand wane ward warm wart wary wave weak weal wean wear weed week weep weld well welt wend went wept were west whim whip whit wild will wilt wily wimp wind wine wing wink wire wise wish wolf wood wool word wore work worm worn wrap wren zero
+abime acier agile album allee amour ample ancre angle anime annee apres argot arbre astre atome avion balle bande banque barbe barre baton belle blanc blond boite bonne botte boule bourg brave brise bulle cable cadre carte casse cause champ chant chaud chien chose clair coeur colle comme copie corde corps coude cours crane crime crois dalle danse debut dense dette divin donne douce doute droit duvet eclat ecole effet eleve encre entre envie epais epice essor etang etape etude eveil exact exces fable faute femme ferme fille fleur flore flute folie foret forge force forme forte franc frere froid front fruit fumee gaine galop garde genie genre glace gorge grace grain grand grave greve guide guise haute herbe hiver homme hotel image index inter jeune jouer laine lance lande large larme lecon libre ligne limon linge livre local longe loupe lueur magie malin manne marin masse matin melee melon metre mines molle monde motif moule moyen mulet musee nappe noble noire norme noter noyau nuire nuque objet ocean odeur offre olive ombre ongle opera ordre orgue orner ozone paire paix palme panne parce parmi passe patin pause peche peine pente perdu perle piste place plage plane plate plein pluie plume poeme poete poils poire poser poule prise prive proie prose prune puits radio raide rampe range rayon recit regle rejet repas repos rever revue riche roche roman rouge route ruban rural sable sabot sabre sacre sauce saule scene selon serie signe sirop sobre soeur sonde songe sorte soupe sport stade style suite sujet table talon tarte tenir tente terme terre tigre titre trace train trait treve trone ultra union unite utile vague valse vaste verbe verre verse veste vigne viser vitre vogue voile voler votre vouer voute wagon zeste
+police docile facile agence avance chance finance nuance science balance cadence urgence audace facade menace montre contre centre fenetre maitre theatre spectre licence silence romance vivace pirate format sonnet ticket budget cornet combat juillet musique riviere montagne village chemin printemps automne lecture chanson morceau racine raison rapide jardin lettre marche marbre mouche poulet truite etoile lumiere langue fleuve maison nature animal soleil saison couleur bonheur famille enfant parent cuisine legume dessert manger dormir marcher courir sauter chanter parler ecrire penser pleurer aimer vouloir pouvoir savoir devoir partir rester entrer sortir monter ouvrir fermer prendre donner mettre garcon mouton pardon bouton carton piston dragon ballon nation prison bateau gateau manteau chapeau plateau tableau couteau rideau bureau niveau milieu travail conseil sommeil appareil orteil vermeil accueil fauteuil action vision poison lecon fagot pelote falaise terrasse promesse jeunesse richesse sagesse tristesse tendresse politesse finesse vitesse adresse caresse paresse noblesse bonjour bonsoir merci bravo chapeau courage patience prudence confiance tolerance clemence violence presence absence evidence vaillance puissance croissance naissance janvier fevrier octobre decembre novembre septembre lunaire solaire polaire regulier familier dernier premier entier sentier cahier dossier abricot banane cerise citron fraise framboise orange peche pomme raisin tomate carotte haricot navet oignon poireau potiron radis courgette aubergine brocoli celeri champignon concombre epinard fenouil laitue poivron artichaut asperge betterave endive
+aborder accorder adapter affecter agencer alerter alterer amplifier ancrer appliquer approuver assumer atteindre augmenter autoriser avancer bloquer borner capter citer classer collaborer collecter combattre commencer confier confirmer connecter construire consulter contacter controler convertir cooperer corriger creer decider decouvrir definir deleguer delivrer deployer developper diriger distribuer documenter effectuer encourager engager etablir evaluer executer faciliter finaliser former fournir gerer guider identifier implanter informer initier inserer installer integrer lancer maintenir manager mesurer normaliser optimiser orienter planifier piloter positionner preparer presenter prioriser produire programmer proposer qualifier realiser recenser recueillir renforcer reparer resoudre restructurer securiser simplifier standardiser structurer superviser supporter tester traiter transformer unifier valider verifier
+`.trim().split(/\s+/).filter(w=>w.length>=2).map(n));
+
+function isWord(s){ return DICT.has(n(s)); }
+
+// ═══════════════════════════════════════════════════
+// CONSTANTES JEU
+// ═══════════════════════════════════════════════════
+const LEVEL_LIMITS = [14,12,10,8,6];
+function getLevelLimit(lvl){ return LEVEL_LIMITS[Math.min(lvl-1,LEVEL_LIMITS.length-1)]; }
+
+const VOWELS = 'AEIOUAEIOUAEIOUYAEIOUY';
+const CONS   = 'BCDFGHJKLMNPQRSTVWXZBCDFGHJKLMNPRSTVBCDFLMNRST';
+function rndLetter(fv,fc){
+  if(fv) return VOWELS[Math.floor(Math.random()*VOWELS.length)];
+  if(fc) return CONS[Math.floor(Math.random()*CONS.length)];
+  return Math.random()<0.40 ? VOWELS[Math.floor(Math.random()*VOWELS.length)] : CONS[Math.floor(Math.random()*CONS.length)];
+}
+
+let letterQueue=[], qTracker=[];
+function refill(){
+  while(letterQueue.length<6){
+    const rv=qTracker.slice(-4).filter(l=>VOWELS.includes(l)).length;
+    const rc=qTracker.slice(-4).filter(l=>!VOWELS.includes(l)).length;
+    const l=(rv>=3)?rndLetter(false,true):(rc>=3)?rndLetter(true,false):rndLetter(false,false);
+    letterQueue.push(l); qTracker.push(l);
+    if(qTracker.length>20) qTracker.shift();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// CANVAS & GRILLE
+// ═══════════════════════════════════════════════════
+const gc = document.getElementById('gc');
+const ctx = gc.getContext('2d');
+
+let GCOLS=10, GROWS=14, CZ=28;
+
+function resizeCanvas(){
+  const wrap = document.getElementById('grid-wrap');
+  const maxW = wrap.clientWidth;
+  const maxH = wrap.clientHeight;
+  CZ = Math.floor(Math.min(maxW/GCOLS, maxH/GROWS));
+  gc.width  = GCOLS*CZ;
+  gc.height = GROWS*CZ;
+}
+
+let grid=[], fallingLetter=null, fallingCol=0, fallingRow=0;
+let score=0, wordCount=0, level=1, bestScore=0, running=false, gameOver=false;
+let selectedCell=null, tickTimer=null;
+let highlightWords=[], highlightTimeout=null;
+
+const WORD_COLORS=[
+  {bg:'#f59e0b',txt:'#1a1a2e'},
+  {bg:'#38bdf8',txt:'#0c1a2e'},
+  {bg:'#f472b6',txt:'#1a0a18'},
+  {bg:'#4ade80',txt:'#0a1a10'},
+  {bg:'#a78bfa',txt:'#1a0a2e'},
+  {bg:'#fb923c',txt:'#1a0a00'},
+];
+
+function loadBest(){ try{ bestScore=parseInt(localStorage.getItem('mg_best')||'0')||0; }catch(e){} document.getElementById('best').textContent=bestScore; }
+function saveBest(){ try{ localStorage.setItem('mg_best',bestScore); }catch(e){} }
+function initGrid(){ grid=[]; for(let r=0;r<GROWS;r++) grid.push(Array(GCOLS).fill(null)); }
+function getTopFilledRow(){ for(let r=0;r<GROWS;r++) if(grid[r].some(c=>c!==null)) return r; return GROWS; }
+function countUsedRows(){ return GROWS-getTopFilledRow(); }
+function checkGameOver(){ return countUsedRows()>getLevelLimit(level); }
+
+function updateLimitBar(){
+  const limit=getLevelLimit(level);
+  const used=countUsedRows();
+  const pct=Math.min(100,Math.round((used/limit)*100));
+  document.getElementById('limit-rows').textContent=limit;
+  const fill=document.getElementById('limit-bar-fill2');
+  fill.style.width=pct+'%';
+  fill.style.background=pct>=80?'#ef4444':pct>=60?'#f59e0b':'#22c97a';
+}
+
+function updateLevelBar(){
+  const pct=score%100;
+  document.getElementById('lvl-bar-fill').style.width=pct+'%';
+  document.getElementById('lvl-label').textContent=pct+' / 100';
+}
+
+function updateNextDisplay(){
+  refill();
+  document.getElementById('next1').textContent=letterQueue[0]||'?';
+  document.getElementById('next2').textContent=letterQueue[1]||'?';
+}
+
+function getCellHighlight(r,c){
+  for(let i=0;i<highlightWords.length;i++)
+    if(highlightWords[i].cells.some(([wr,wc])=>wr===r&&wc===c))
+      return WORD_COLORS[i%WORD_COLORS.length];
+  return null;
+}
+
+function drawGrid(){
+  ctx.clearRect(0,0,gc.width,gc.height);
+
+  // Fond
+  ctx.fillStyle='#0f0e17';
+  ctx.beginPath(); ctx.roundRect(0,0,gc.width,gc.height,10); ctx.fill();
+
+  // Zone limite
+  const limitRow=GROWS-getLevelLimit(level);
+  if(limitRow>0){
+    ctx.fillStyle='rgba(239,68,68,0.05)';
+    ctx.fillRect(0,limitRow*CZ,gc.width,(GROWS-limitRow)*CZ);
+    ctx.strokeStyle='rgba(239,68,68,0.35)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,limitRow*CZ); ctx.lineTo(gc.width,limitRow*CZ); ctx.stroke();
+  }
+
+  // Grille
+  ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=.5;
+  for(let r=0;r<GROWS;r++) for(let c=0;c<GCOLS;c++){
+    ctx.strokeRect(c*CZ+.5,r*CZ+.5,CZ-1,CZ-1);
+  }
+
+  // Contours des mots en surbrillance
+  if(highlightWords.length>0){
+    highlightWords.forEach((hw,i)=>{
+      const color=WORD_COLORS[i%WORD_COLORS.length];
+      const rows=hw.cells.map(([r])=>r), cols=hw.cells.map(([,c])=>c);
+      const minR=Math.min(...rows),maxR=Math.max(...rows);
+      const minC=Math.min(...cols),maxC=Math.max(...cols);
+      const x=minC*CZ+1,y=minR*CZ+1,w=(maxC-minC+1)*CZ-2,h=(maxR-minR+1)*CZ-2;
+      ctx.fillStyle=color.bg+'22';
+      ctx.beginPath(); ctx.roundRect(x,y,w,h,5); ctx.fill();
+      ctx.strokeStyle=color.bg; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.roundRect(x,y,w,h,5); ctx.stroke();
+    });
+  }
+
+  // Cellules
+  for(let r=0;r<GROWS;r++) for(let c=0;c<GCOLS;c++){
+    const cell=grid[r][c];
+    if(!cell) continue;
+    const isSel=selectedCell&&selectedCell.r===r&&selectedCell.c===c;
+    const hl=getCellHighlight(r,c);
+    const x=c*CZ, y=r*CZ;
+    ctx.fillStyle=isSel?'#f59e0b':hl?hl.bg:'#22c97a';
+    ctx.beginPath(); ctx.roundRect(x+1,y+1,CZ-2,CZ-2,5); ctx.fill();
+    ctx.fillStyle=isSel?'#1a1a2e':hl?hl.txt:'#0a1a10';
+    ctx.font=`700 ${Math.round(CZ*.56)}px 'Space Mono', monospace`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(cell,x+CZ/2,y+CZ/2+1);
+  }
+
+  // Ghost + lettre en chute
+  if(fallingLetter&&running){
+    let ghostRow=Math.floor(fallingRow);
+    while(ghostRow+1<GROWS&&(!grid[ghostRow+1]||grid[ghostRow+1][fallingCol]===null)) ghostRow++;
+    if(ghostRow!==Math.floor(fallingRow)){
+      const gx=fallingCol*CZ, gy=ghostRow*CZ;
+      ctx.fillStyle='rgba(124,106,247,0.12)';
+      ctx.beginPath(); ctx.roundRect(gx+1,gy+1,CZ-2,CZ-2,5); ctx.fill();
+      ctx.fillStyle='rgba(124,106,247,0.4)';
+      ctx.font=`700 ${Math.round(CZ*.56)}px 'Space Mono', monospace`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(fallingLetter,gx+CZ/2,gy+CZ/2+1);
+    }
+    const x=fallingCol*CZ, y=Math.floor(fallingRow)*CZ;
+    ctx.fillStyle='#7c6af7';
+    ctx.beginPath(); ctx.roundRect(x+1,y+1,CZ-2,CZ-2,5); ctx.fill();
+    ctx.fillStyle='#fff';
+    ctx.font=`700 ${Math.round(CZ*.56)}px 'Space Mono', monospace`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(fallingLetter,x+CZ/2,y+CZ/2+1);
+  }
+
+  // Game over overlay
+  if(gameOver){
+    ctx.fillStyle='rgba(15,14,23,0.85)';
+    ctx.beginPath(); ctx.roundRect(0,0,gc.width,gc.height,10); ctx.fill();
+    ctx.fillStyle='#e8e6f0';
+    ctx.font=`800 ${Math.round(CZ*.8)}px 'Syne', sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('GAME OVER',gc.width/2,gc.height/2-CZ);
+    ctx.font=`400 ${Math.round(CZ*.45)}px 'Space Mono', monospace`;
+    ctx.fillStyle='#a78bfa';
+    ctx.fillText('Score : '+score,gc.width/2,gc.height/2);
+    ctx.fillStyle='#9993b8';
+    ctx.fillText('Meilleur : '+bestScore,gc.width/2,gc.height/2+CZ*0.9);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// LOGIQUE JEU
+// ═══════════════════════════════════════════════════
+function dropNow(){
+  if(!running||!fallingLetter) return;
+  let r=Math.floor(fallingRow);
+  while(r+1<GROWS&&(!grid[r+1]||grid[r+1][fallingCol]===null)) r++;
+  fallingRow=r; land();
+}
+
+function spawnNext(){
+  refill();
+  fallingLetter=letterQueue.shift();
+  updateNextDisplay();
+  fallingCol=Math.floor(Math.random()*GCOLS);
+  fallingRow=0;
+  if(grid[0][fallingCol]!==null) doGameOver();
+}
+
+function doGameOver(){
+  running=false; gameOver=true; fallingLetter=null;
+  if(tickTimer) clearInterval(tickTimer);
+  if(score>bestScore){ bestScore=score; saveBest(); }
+  document.getElementById('best').textContent=bestScore;
+  document.getElementById('msg').textContent='Appuie sur Recommencer !';
+  drawGrid();
+}
+
+function land(){
+  let r=Math.floor(fallingRow);
+  while(r+1<GROWS&&(!grid[r+1]||grid[r+1][fallingCol]===null)) r++;
+  grid[r][fallingCol]=fallingLetter;
+  fallingLetter=null;
+  updateLimitBar();
+  if(checkGameOver()){ doGameOver(); return; }
+  document.getElementById('msg').textContent='Déplace et forme des mots !';
+  drawGrid();
+  setTimeout(()=>{ if(running) spawnNext(); },300);
+}
+
+function tick(){
+  if(!running||!fallingLetter) return;
+  fallingRow+=0.10+(level-1)*0.02;
+  const r=Math.floor(fallingRow);
+  if(r>=GROWS-1||(grid[r+1]&&grid[r+1][fallingCol]!==null)) land();
+  else drawGrid();
+}
+
+function applyGravity(){
+  for(let c=0;c<GCOLS;c++){
+    const col=[];
+    for(let r=0;r<GROWS;r++) if(grid[r][c]!==null) col.push(grid[r][c]);
+    for(let r=0;r<GROWS;r++) grid[r][c]=(r<GROWS-col.length)?null:col[r-(GROWS-col.length)];
+  }
+  drawGrid();
+}
+
+function getAllCandidates(){
+  const candidates=[];
+  function processRun(run){
+    if(run.length<2) return;
+    for(let s=0;s<run.length;s++){
+      for(let len=2;len<=run.length-s;len++){
+        const cells=run.slice(s,s+len);
+        const letters=cells.map(([r,c])=>grid[r][c]);
+        const w=n(letters.join(''));
+        const wr=n([...letters].reverse().join(''));
+        if(isWord(w)) candidates.push({word:letters.join(''),len,cells});
+        else if(isWord(wr)) candidates.push({word:[...letters].reverse().join(''),len,cells});
+      }
+    }
+  }
+  for(let r=0;r<GROWS;r++){
+    let run=[];
+    for(let c=0;c<GCOLS;c++){
+      if(grid[r][c]!==null) run.push([r,c]);
+      else{ processRun(run); run=[]; }
+    }
+    processRun(run);
+  }
+  for(let c=0;c<GCOLS;c++){
+    let run=[];
+    for(let r=0;r<GROWS;r++){
+      if(grid[r][c]!==null) run.push([r,c]);
+      else{ processRun(run); run=[]; }
+    }
+    processRun(run);
+  }
+  candidates.sort((a,b)=>b.len-a.len);
+  return candidates;
+}
+
+// ═══════════════════════════════════════════════════
+// INTERACTIONS
+// ═══════════════════════════════════════════════════
+gc.addEventListener('click',e=>{
+  if(!running||highlightWords.length>0) return;
+  const rect=gc.getBoundingClientRect();
+  const c=Math.floor((e.clientX-rect.left)*(gc.width/rect.width)/CZ);
+  const r=Math.floor((e.clientY-rect.top)*(gc.height/rect.height)/CZ);
+  if(c<0||c>=GCOLS||r<0||r>=GROWS) return;
+  if(selectedCell){
+    if(grid[r][c]===null){
+      grid[r][c]=selectedCell.letter;
+      grid[selectedCell.r][selectedCell.c]=null;
+      applyGravity(); updateLimitBar(); selectedCell=null;
+      document.getElementById('msg').textContent='Lettre déplacée !';
+    } else if(r===selectedCell.r&&c===selectedCell.c){
+      selectedCell=null;
+      document.getElementById('msg').textContent='Sélection annulée.';
+    } else {
+      selectedCell={r,c,letter:grid[r][c]};
+      document.getElementById('msg').textContent='→ Tap une case vide pour placer '+grid[r][c];
+    }
+    drawGrid(); return;
+  }
+  if(grid[r][c]!==null){
+    selectedCell={r,c,letter:grid[r][c]};
+    document.getElementById('msg').textContent='→ Tap une case vide pour placer '+grid[r][c];
+    drawGrid();
+  }
+});
+
+// Touch support
+gc.addEventListener('touchstart',e=>{ e.preventDefault(); gc.dispatchEvent(new MouseEvent('click',{clientX:e.touches[0].clientX,clientY:e.touches[0].clientY})); },{passive:false});
+
+document.getElementById('btn-validate').addEventListener('click',()=>{
+  if(!running||highlightWords.length>0) return;
+  selectedCell=null;
+  const candidates=getAllCandidates();
+  const usedKeys=new Set();
+  const validated=[];
+  for(const fw of candidates){
+    if(!fw.cells.some(([r,c])=>usedKeys.has(r+','+c))){
+      fw.cells.forEach(([r,c])=>usedKeys.add(r+','+c));
+      validated.push(fw);
+    }
+  }
+  if(validated.length===0){
+    document.getElementById('found-words').textContent='Aucun mot trouvé !';
+    document.getElementById('msg').textContent='Réorganise les lettres…';
+    drawGrid(); return;
+  }
+  let pts=0;
+  validated.forEach(({len})=>{ pts+=len===2?1:len<=5?5:10; });
+  score+=pts; wordCount+=validated.length;
+  const oldLevel=level;
+  level=Math.floor(score/100)+1;
+  if(score>bestScore){ bestScore=score; saveBest(); }
+  document.getElementById('score').textContent=score;
+  document.getElementById('words').textContent=wordCount;
+  document.getElementById('best').textContent=bestScore;
+  document.getElementById('level').textContent=level;
+  document.getElementById('found-words').textContent=validated.map(fw=>{
+    const p=fw.len===2?1:fw.len<=5?5:10;
+    return fw.word+' +'+p;
+  }).join('  ·  ');
+  document.getElementById('msg').textContent=level>oldLevel
+    ? '🎉 Niveau '+level+' ! Limite : '+getLevelLimit(level)+' lignes'
+    : '+'+pts+' points !';
+  updateLevelBar();
+
+  highlightWords=validated; drawGrid();
+  if(highlightTimeout) clearTimeout(highlightTimeout);
+  highlightTimeout=setTimeout(()=>{
+    highlightWords=[];
+    usedKeys.forEach(k=>{ const[r,c]=k.split(',').map(Number); grid[r][c]=null; });
+    applyGravity(); updateLimitBar();
+    if(checkGameOver()) doGameOver();
+  },2000);
+});
+
+document.getElementById('btn-drop').addEventListener('click', dropNow);
+document.getElementById('btn-clear').addEventListener('click',()=>{
+  if(!running||highlightWords.length>0) return;
+  selectedCell=null; initGrid();
+  document.getElementById('found-words').textContent='';
+  document.getElementById('msg').textContent='Grille effacée !';
+  updateLimitBar(); drawGrid();
+});
+
+function startGame(){
+  if(highlightTimeout){ clearTimeout(highlightTimeout); highlightTimeout=null; }
+  highlightWords=[];
+  initGrid(); letterQueue=[]; qTracker=[]; refill();
+  score=0; wordCount=0; level=1; gameOver=false; running=true;
+  selectedCell=null; fallingLetter=null;
+  document.getElementById('score').textContent='0';
+  document.getElementById('words').textContent='0';
+  document.getElementById('level').textContent='1';
+  document.getElementById('found-words').textContent='';
+  document.getElementById('msg').textContent='Déplace les lettres et forme des mots !';
+  updateLimitBar(); updateLevelBar(); updateNextDisplay();
+  resizeCanvas(); drawGrid();
+  if(tickTimer) clearInterval(tickTimer);
+  tickTimer=setInterval(tick,50);
+  spawnNext();
+}
+
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-play-overlay').addEventListener('click',()=>{
+  document.getElementById('overlay').classList.add('hidden');
+  startGame();
+});
+
+document.addEventListener('keydown',e=>{
+  if(e.key===' '||e.key==='ArrowDown'){ e.preventDefault(); dropNow(); }
+});
+
+window.addEventListener('resize',()=>{ resizeCanvas(); drawGrid(); });
+
+// Init
+loadBest();
+resizeCanvas();
+drawGrid();
+</script>
+</body>
+</html>
